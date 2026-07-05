@@ -25,13 +25,15 @@ const Avatar = ({
           <User className="w-6 h-6 text-gray-400" />
         </div>
       )}
-      <img
-        src={src}
-        alt={alt}
-        className={`w-10 h-10 rounded-full object-cover border border-gray-300 ${imageLoaded ? '' : 'hidden'}`}
-        onLoad={() => setImageLoaded(true)}
-        onError={() => setImageLoaded(false)}
-      />
+      {src ? (
+        <img
+          src={src}
+          alt={alt}
+          className={`w-10 h-10 rounded-full object-cover border border-gray-300 ${imageLoaded ? '' : 'hidden'}`}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageLoaded(false)}
+        />
+      ) : null}
     </div>
   );
 };

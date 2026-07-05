@@ -6,6 +6,7 @@ import Attendance from './Pages/Attendance/Attendance';
 import Notice from './Pages/Notice/Notice';
 import SignIn from './Pages/Signin/Signin';
 import Finance from './Pages/Finance/Finance';
+import Interviews from './Pages/Interviews/Interviews';
 import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './components/ProtectedRoutes/ProtectedRoute';
 
@@ -28,6 +29,7 @@ const App = () => {
           <Route path='leaves' element={<Leaves />} />
           <Route path='notice' element={<Notice />} />
           <Route path='finance' element={<Finance />} />
+          <Route path='interviews' element={<Interviews />} />
         </Route>
       </Routes>
     </Router>

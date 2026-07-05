@@ -132,3 +132,13 @@ export async function fetchProfile() {
   const response = await Instance.get('/employee/me');
   return response.data;
 }
+
+export async function getInterviewRequestsEmployee() {
+  const response = await Instance.get("/interview-request/employee");
+  return response.data;
+}
+
+export async function confirmInterviewRequestEmployee(id: string) {
+  const response = await Instance.put(`/interview-request/employee/${id}/confirm`);
+  return response.data;
+}
