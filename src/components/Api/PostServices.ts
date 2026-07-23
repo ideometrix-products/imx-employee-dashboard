@@ -13,6 +13,9 @@ export async function login({
     const response = await Instance.post(`/employee/login`, { email, password });
     localStorage.setItem('isAuthenticated', 'true');
     localStorage.setItem('employeeId', response.data.employeeId);
+    if (response.data.token) {
+      localStorage.setItem('token', response.data.token);
+    }
 
     return response.data;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,6 +133,15 @@ export async function getSequentialAttendance(): Promise<any> {
 
 export async function fetchProfile() {
   const response = await Instance.get('/employee/me');
+  return response.data;
+}
+
+export async function updateMyProfile(formData: FormData): Promise<any> {
+  const response = await Instance.put('/employee/me/profile', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return response.data;
 }
 
