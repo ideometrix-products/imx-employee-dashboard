@@ -105,6 +105,7 @@ export default function Profile() {
   const [location, setLocation] = useState('');
   const [timezone, setTimezone] = useState('');
   const [years, setYears] = useState(1);
+  const [rate, setRate] = useState(25);
   
   // Status
   const [approvalStatus, setApprovalStatus] = useState<'draft' | 'pending_approval' | 'approved'>('draft');
@@ -146,6 +147,7 @@ export default function Profile() {
         setLocation(data.location || '');
         setTimezone(data.timezone || '');
         setYears(data.years || 1);
+        setRate(data.rate || 25);
         setImageUrl(data.imageUrl || '');
         setApprovalStatus(data.approvalStatus || 'draft');
         setIsPublished(Boolean(data.isPublished));
@@ -307,6 +309,7 @@ export default function Profile() {
       formData.append('location', location);
       formData.append('timezone', timezone);
       formData.append('years', String(years));
+      formData.append('rate', String(rate));
       formData.append('linkdInProfileUrl', linkdInProfileUrl);
       formData.append('githubUrl', githubUrl);
       formData.append('upworkProfileUrl', upworkProfileUrl);
@@ -419,7 +422,7 @@ export default function Profile() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Location</label>
                   <div className="relative">
@@ -437,8 +440,16 @@ export default function Profile() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Years of Experience</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Years of Exp</label>
                   <input type="number" min="0" max="40" value={years} onChange={(e) => setYears(Number(e.target.value))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Hourly Rate ($/hr)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-sm font-bold text-slate-400">$</span>
+                    <input type="number" min="1" max="500" value={rate} onChange={(e) => setRate(Number(e.target.value))} placeholder="25" className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-indigo-500" />
+                  </div>
                 </div>
               </div>
             </div>
