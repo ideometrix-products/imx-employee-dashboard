@@ -52,6 +52,48 @@ const MONTHS = [
 
 const YEARS = Array.from({ length: 30 }, (_, i) => String(new Date().getFullYear() - i));
 
+export function normalizeSkills(skills: any): string[] {
+  if (!skills) return [];
+  const result: string[] = [];
+  const processItem = (item: any) => {
+    if (!item) return;
+    if (Array.isArray(item)) {
+      item.forEach(processItem);
+      return;
+    }
+    if (typeof item === 'string') {
+      let trimmed = item.trim();
+      if (!trimmed) return;
+      while ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(processItem);
+            return;
+          } else if (typeof parsed === 'string') {
+            trimmed = parsed.trim();
+          } else {
+            break;
+          }
+        } catch {
+          break;
+        }
+      }
+      if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+        trimmed = trimmed.slice(1, -1).trim();
+      }
+      if (trimmed.includes(',')) {
+        trimmed.split(',').forEach(sub => processItem(sub));
+      } else {
+        const cleanVal = trimmed.replace(/^["'\[\]]+|["'\[\]]+$/g, '').trim();
+        if (cleanVal) result.push(cleanVal);
+      }
+    }
+  };
+  processItem(skills);
+  return Array.from(new Set(result));
+}
+
 export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -109,7 +151,7 @@ export default function Profile() {
         setIsPublished(Boolean(data.isPublished));
         setSlug(data.slug || '');
 
-        setSkills(Array.isArray(data.skills) ? data.skills : []);
+        setSkills(normalizeSkills(data.skills));
         setLanguages(Array.isArray(data.languages) ? data.languages : []);
         setExperiences(Array.isArray(data.experience) ? data.experience : []);
         setCertifications(Array.isArray(data.certifications) ? data.certifications : []);
