@@ -302,6 +302,45 @@ export default function Profile() {
   };
 
   const handleSave = async (submitForApproval = false) => {
+    if (submitForApproval) {
+      const missing: string[] = [];
+
+      if (!imageUrl && !imageFile) {
+        missing.push('Profile Picture');
+      }
+      if (!location.trim()) {
+        missing.push('Location');
+      }
+      if (!timezone.trim()) {
+        missing.push('Timezone');
+      }
+      if (!description.trim() || description.trim().length < 20) {
+        missing.push('About & Bio description (min 20 chars)');
+      }
+      if (!skills || skills.length === 0) {
+        missing.push('Skills & Tools');
+      }
+      if (!languages || languages.length === 0) {
+        missing.push('Languages Spoken');
+      }
+      if (!experiences || experiences.length === 0 || experiences.some((e) => !e.role.trim() || !e.company.trim())) {
+        missing.push('Work Experience (role & company)');
+      }
+      if (!certifications || certifications.length === 0 || certifications.some((c) => !c.title.trim() || !c.issuer.trim())) {
+        missing.push('Certifications / Education (title & issuer)');
+      }
+      if (!linkdInProfileUrl.trim() && !githubUrl.trim() && !upworkProfileUrl.trim() && !fiverrProfileUrl.trim()) {
+        missing.push('At least one profile link (LinkedIn/GitHub/Upwork/Fiverr)');
+      }
+
+      if (missing.length > 0) {
+        toast.error(`Please complete all required profile fields before submitting for admin approval:\n• ${missing.join('\n• ')}`, {
+          duration: 5000,
+        });
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       const formData = new FormData();
