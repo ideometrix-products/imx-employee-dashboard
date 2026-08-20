@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   ArrowRight,
   GripVertical,
+  ExternalLink,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchProfile, updateMyProfile } from '@/components/Api/PostServices';
@@ -43,6 +44,7 @@ interface ReviewScreenshot {
   imageUrl: string;
   caption: string;
   platform: string;
+  file?: File;
 }
 
 const MONTHS = [
@@ -52,7 +54,7 @@ const MONTHS = [
 
 const YEARS = Array.from({ length: 30 }, (_, i) => String(new Date().getFullYear() - i));
 
-export function normalizeSkills(skills: any): string[] {
+function normalizeSkills(skills: any): string[] {
   if (!skills) return [];
   const result: string[] = [];
   const processItem = (item: any) => {
@@ -129,6 +131,7 @@ export default function Profile() {
   // Social links
   const [linkdInProfileUrl, setLinkdInProfileUrl] = useState('');
   const [githubUrl, setGithubUrl] = useState('');
+  const [portfolioUrl, setPortfolioUrl] = useState('');
   const [upworkProfileUrl, setUpworkProfileUrl] = useState('');
   const [fiverrProfileUrl, setFiverrProfileUrl] = useState('');
 
@@ -161,6 +164,7 @@ export default function Profile() {
 
         setLinkdInProfileUrl(data.linkdInProfileUrl || '');
         setGithubUrl(data.githubUrl || '');
+        setPortfolioUrl(data.portfolioUrl || '');
         setUpworkProfileUrl(data.upworkProfileUrl || '');
         setFiverrProfileUrl(data.fiverrProfileUrl || '');
       }
@@ -291,9 +295,19 @@ export default function Profile() {
     ]);
   };
 
-  const updateReviewScreenshot = (index: number, field: keyof ReviewScreenshot, value: string) => {
+  const updateReviewScreenshot = (index: number, field: keyof ReviewScreenshot, value: any) => {
     const updated = [...reviewScreenshots];
     updated[index] = { ...updated[index], [field]: value };
+    setReviewScreenshots(updated);
+  };
+
+  const handleReviewFileChange = (index: number, file: File) => {
+    const updated = [...reviewScreenshots];
+    updated[index] = {
+      ...updated[index],
+      file,
+      imageUrl: URL.createObjectURL(file),
+    };
     setReviewScreenshots(updated);
   };
 
@@ -311,9 +325,6 @@ export default function Profile() {
       if (!location.trim()) {
         missing.push('Location');
       }
-      if (!timezone.trim()) {
-        missing.push('Timezone');
-      }
       if (!description.trim() || description.trim().length < 20) {
         missing.push('About & Bio description (min 20 chars)');
       }
@@ -329,8 +340,8 @@ export default function Profile() {
       if (!certifications || certifications.length === 0 || certifications.some((c) => !c.title.trim() || !c.issuer.trim())) {
         missing.push('Certifications / Education (title & issuer)');
       }
-      if (!linkdInProfileUrl.trim() && !githubUrl.trim() && !upworkProfileUrl.trim() && !fiverrProfileUrl.trim()) {
-        missing.push('At least one profile link (LinkedIn/GitHub/Upwork/Fiverr)');
+      if (!linkdInProfileUrl.trim() && !githubUrl.trim() && !portfolioUrl.trim() && !upworkProfileUrl.trim() && !fiverrProfileUrl.trim()) {
+        missing.push('At least one profile link (LinkedIn/GitHub/Portfolio/Upwork/Fiverr)');
       }
 
       if (missing.length > 0) {
@@ -351,6 +362,7 @@ export default function Profile() {
       formData.append('rate', String(rate));
       formData.append('linkdInProfileUrl', linkdInProfileUrl);
       formData.append('githubUrl', githubUrl);
+      formData.append('portfolioUrl', portfolioUrl);
       formData.append('upworkProfileUrl', upworkProfileUrl);
       formData.append('fiverrProfileUrl', fiverrProfileUrl);
 
@@ -358,7 +370,19 @@ export default function Profile() {
       formData.append('languages', JSON.stringify(languages));
       formData.append('experience', JSON.stringify(experiences));
       formData.append('certifications', JSON.stringify(certifications));
-      formData.append('reviewScreenshots', JSON.stringify(reviewScreenshots));
+      
+      const cleanReviews = reviewScreenshots.map((r) => ({
+        imageUrl: r.file ? '' : r.imageUrl,
+        caption: r.caption || '',
+        platform: r.platform || 'Upwork',
+      }));
+      formData.append('reviewScreenshots', JSON.stringify(cleanReviews));
+
+      reviewScreenshots.forEach((r, idx) => {
+        if (r.file) {
+          formData.append(`review_screenshot_${idx}`, r.file);
+        }
+      });
 
       if (imageFile) {
         formData.append('imageUrl', imageFile);
@@ -461,20 +485,12 @@ export default function Profile() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Location</label>
                   <div className="relative">
                     <MapPin className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                     <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Lahore, Pakistan" className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Timezone</label>
-                  <div className="relative">
-                    <Clock className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                    <input type="text" value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="e.g. PKT (UTC+5)" className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500" />
                   </div>
                 </div>
 
@@ -726,42 +742,134 @@ export default function Profile() {
 
         {/* Section 6: Upwork / Fiverr Review Proof Screenshots */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-3 flex-wrap gap-2">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Star className="w-5 h-5 text-amber-500" /> Upwork & Fiverr Review Proof Screenshots
+                <Star className="w-5 h-5 text-amber-500" /> Upwork &amp; Fiverr Review Proof Screenshots
               </h2>
-              <p className="text-xs text-slate-500">
-                Upload image URLs or screenshots of client ratings/reviews from freelance platforms.
+              <p className="text-xs text-slate-500 mt-0.5">
+                Upload proof screenshots of 5-star ratings or client reviews from freelance platforms to display on your public profile.
               </p>
             </div>
-            <button type="button" onClick={addReviewScreenshot} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition-colors">
-              <Plus className="w-4 h-4" /> Add Review Image
+            <button
+              type="button"
+              onClick={addReviewScreenshot}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4" /> Add Review Screenshot
             </button>
           </div>
 
           {reviewScreenshots.length === 0 ? (
-            <p className="text-sm text-slate-400 italic">No review screenshots added yet.</p>
+            <div className="text-center py-8 px-4 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+              <Star className="w-8 h-8 text-amber-400 mx-auto mb-2 opacity-60" />
+              <p className="text-sm font-semibold text-slate-600 mb-1">No review screenshots added yet</p>
+              <p className="text-xs text-slate-400 mb-3">Add screenshot proofs of your Upwork, Fiverr, or client reviews to boost credibility.</p>
+              <button
+                type="button"
+                onClick={addReviewScreenshot}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Review Screenshot
+              </button>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               {reviewScreenshots.map((rev, idx) => (
-                <div key={idx} className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 space-y-3 relative">
-                  <button type="button" onClick={() => removeReviewScreenshot(idx)} className="absolute top-3 right-3 text-slate-400 hover:text-rose-600">
+                <div
+                  key={idx}
+                  className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 space-y-3 relative flex flex-col justify-between hover:border-slate-300 transition-all shadow-xs"
+                >
+                  <button
+                    type="button"
+                    onClick={() => removeReviewScreenshot(idx)}
+                    className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors z-10 cursor-pointer"
+                    title="Remove Screenshot"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </button>
 
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Platform:</label>
-                    <select value={rev.platform} onChange={(e) => updateReviewScreenshot(idx, 'platform', e.target.value)} className="px-2 py-1 bg-white border border-slate-200 rounded text-xs font-semibold">
-                      <option value="Upwork">Upwork</option>
-                      <option value="Fiverr">Fiverr</option>
-                      <option value="LinkedIn">LinkedIn</option>
-                      <option value="Direct Client">Direct Client</option>
-                    </select>
-                  </div>
+                  <div className="space-y-3">
+                    {/* Platform Selector */}
+                    <div className="flex items-center gap-2 pr-8">
+                      <label className="text-xs font-bold text-slate-500 uppercase shrink-0">Platform:</label>
+                      <select
+                        value={rev.platform || 'Upwork'}
+                        onChange={(e) => updateReviewScreenshot(idx, 'platform', e.target.value)}
+                        className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-indigo-500"
+                      >
+                        <option value="Upwork">Upwork</option>
+                        <option value="Fiverr">Fiverr</option>
+                        <option value="LinkedIn">LinkedIn</option>
+                        <option value="Direct Client">Direct Client</option>
+                      </select>
+                    </div>
 
-                  <input type="text" value={rev.imageUrl} onChange={(e) => updateReviewScreenshot(idx, 'imageUrl', e.target.value)} placeholder="Image URL (e.g. https://...)" className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-500" />
-                  <input type="text" value={rev.caption} onChange={(e) => updateReviewScreenshot(idx, 'caption', e.target.value)} placeholder="Short Caption (e.g. 5-Star React Project Review)" className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-500" />
+                    {/* Direct Image Upload / Preview Box */}
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        Screenshot Proof Image
+                      </label>
+                      {rev.imageUrl ? (
+                        <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-900 group h-44 flex items-center justify-center">
+                          <img
+                            src={rev.imageUrl}
+                            alt="Review Proof Screenshot"
+                            className="w-full h-full object-contain"
+                          />
+                          <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <label className="px-3 py-1.5 bg-white text-slate-800 rounded-lg text-xs font-bold cursor-pointer transition-transform hover:scale-105 shadow flex items-center gap-1.5">
+                              <Upload className="w-3.5 h-3.5" /> Replace Screenshot
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files[0]) {
+                                    handleReviewFileChange(idx, e.target.files[0]);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-indigo-200 hover:border-indigo-500 rounded-xl bg-white hover:bg-indigo-50/40 transition-all cursor-pointer p-4 text-center group">
+                          <div className="w-10 h-10 rounded-full bg-indigo-50 group-hover:bg-indigo-100 flex items-center justify-center text-indigo-600 mb-2 transition-colors">
+                            <Upload className="w-5 h-5" />
+                          </div>
+                          <span className="text-xs font-bold text-slate-800 group-hover:text-indigo-600">
+                            Click to upload review screenshot
+                          </span>
+                          <span className="text-[11px] text-slate-400 mt-0.5">PNG, JPG, WebP up to 10MB</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                handleReviewFileChange(idx, e.target.files[0]);
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    {/* Short Caption */}
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        Caption / Project Summary
+                      </label>
+                      <input
+                        type="text"
+                        value={rev.caption || ''}
+                        onChange={(e) => updateReviewScreenshot(idx, 'caption', e.target.value)}
+                        placeholder="e.g. 5-Star review on Full-Stack Web Development project"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-500 placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -788,6 +896,14 @@ export default function Profile() {
               <div className="relative">
                 <Github className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                 <input type="url" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} placeholder="https://github.com/..." className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Portfolio Website URL</label>
+              <div className="relative">
+                <ExternalLink className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                <input type="url" value={portfolioUrl} onChange={(e) => setPortfolioUrl(e.target.value)} placeholder="https://myportfolio.com or https://behance.net/..." className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500" />
               </div>
             </div>
 
