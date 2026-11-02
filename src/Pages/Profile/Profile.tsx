@@ -53,14 +53,32 @@ const MONTHS = [
 ];
 
 const YEARS = Array.from({ length: 30 }, (_, i) => String(new Date().getFullYear() - i));
+const MAX_SKILL_LENGTH = 45;
+const MAX_SKILL_WORDS = 7;
+const MAX_EMPLOYEE_SKILLS = 20;
+
+function getSkillValidationError(skill: string): string | null {
+  const trimmed = skill.trim();
+  if (!trimmed) return 'Enter a skill or tool.';
+  if (trimmed.length > MAX_SKILL_LENGTH) {
+    return `Keep each skill to ${MAX_SKILL_LENGTH} characters or fewer.`;
+  }
+  if (trimmed.includes(',')) {
+    return 'Add one skill per tag instead of combining skills with commas.';
+  }
+  if (trimmed.split(/\s+/).length > MAX_SKILL_WORDS) {
+    return `Keep each skill to ${MAX_SKILL_WORDS} words or fewer.`;
+  }
+  return null;
+}
 
 function normalizeSkills(skills: any): string[] {
   if (!skills) return [];
   const result: string[] = [];
-  const processItem = (item: any) => {
+  const processItem = (item: any, splitCommaDelimited = true) => {
     if (!item) return;
     if (Array.isArray(item)) {
-      item.forEach(processItem);
+      item.forEach((value) => processItem(value, false));
       return;
     }
     if (typeof item === 'string') {
@@ -70,7 +88,7 @@ function normalizeSkills(skills: any): string[] {
         try {
           const parsed = JSON.parse(trimmed);
           if (Array.isArray(parsed)) {
-            parsed.forEach(processItem);
+            parsed.forEach((value) => processItem(value, false));
             return;
           } else if (typeof parsed === 'string') {
             trimmed = parsed.trim();
@@ -84,8 +102,8 @@ function normalizeSkills(skills: any): string[] {
       if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
         trimmed = trimmed.slice(1, -1).trim();
       }
-      if (trimmed.includes(',')) {
-        trimmed.split(',').forEach(sub => processItem(sub));
+      if (splitCommaDelimited && trimmed.includes(',')) {
+        trimmed.split(',').forEach((sub) => processItem(sub));
       } else {
         const cleanVal = trimmed.replace(/^["'\[\]]+|["'\[\]]+$/g, '').trim();
         if (cleanVal) result.push(cleanVal);
@@ -93,7 +111,14 @@ function normalizeSkills(skills: any): string[] {
     }
   };
   processItem(skills);
-  return Array.from(new Set(result));
+  const normalizedSkills = result.map((skill) => skill.replace(/\s+/g, ' ').trim());
+  const seen = new Set<string>();
+  return normalizedSkills.filter((skill) => {
+  const key = skill.toLocaleLowerCase();
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+  });
 }
 
 export default function Profile() {
@@ -121,6 +146,7 @@ export default function Profile() {
   // Arrays
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
+  const [skillError, setSkillError] = useState('');
   const [languages, setLanguages] = useState<string[]>([]);
   const [languageInput, setLanguageInput] = useState('');
   
@@ -193,10 +219,26 @@ export default function Profile() {
   const [draggedSkillIdx, setDraggedSkillIdx] = useState<number | null>(null);
 
   const addSkill = () => {
-    if (skillInput.trim() && !skills.includes(skillInput.trim())) {
-      setSkills([...skills, skillInput.trim()]);
-      setSkillInput('');
+    const newSkill = skillInput.replace(/\s+/g, ' ').trim();
+    const validationError = getSkillValidationError(newSkill);
+    if (validationError) {
+      setSkillError(validationError);
+      return;
     }
+
+    if (skills.length >= MAX_EMPLOYEE_SKILLS) {
+      setSkillError(`You can add up to ${MAX_EMPLOYEE_SKILLS} skills. Remove one before adding another.`);
+      return;
+    }
+
+    if (skills.some((skill) => skill.toLocaleLowerCase() === newSkill.toLocaleLowerCase())) {
+      setSkillError('That skill or tool has already been added.');
+      return;
+    }
+
+    setSkills([...skills, newSkill]);
+    setSkillInput('');
+    setSkillError('');
   };
 
   const removeSkill = (index: number) => {
@@ -316,6 +358,17 @@ export default function Profile() {
   };
 
   const handleSave = async (submitForApproval = false) => {
+    if (skills.length > MAX_EMPLOYEE_SKILLS) {
+      toast.error(`Please keep your list to ${MAX_EMPLOYEE_SKILLS} skills or fewer.`);
+      return;
+    }
+
+    const invalidSkill = skills.find((skill) => getSkillValidationError(skill));
+    if (invalidSkill) {
+      toast.error(`"${invalidSkill}" is too long or contains too many words. Remove it and add each skill separately.`);
+      return;
+    }
+
     if (submitForApproval) {
       const missing: string[] = [];
 
@@ -547,7 +600,7 @@ export default function Profile() {
                 </span>
               </h2>
               <p className="text-xs text-slate-500 mt-2">
-                Drag any skill tag to reorder. The ⭐ <strong>first 3 skills</strong> will appear on your public talent card.
+                Add one skill or tool per tag (up to {MAX_SKILL_LENGTH} characters and {MAX_SKILL_WORDS} words; {MAX_EMPLOYEE_SKILLS} total). Do not combine skills with commas. Drag to reorder; your ⭐ <strong>first 3 skills</strong> appear on your public talent card.
               </p>
             </div>
 
@@ -555,10 +608,17 @@ export default function Profile() {
               <input
                 type="text"
                 value={skillInput}
-                onChange={(e) => setSkillInput(e.target.value)}
+                maxLength={MAX_SKILL_LENGTH}
+                aria-label="Skill or tool"
+                aria-describedby="skill-input-help"
+                aria-invalid={Boolean(skillError)}
+                onChange={(e) => {
+                  setSkillInput(e.target.value);
+                  if (skillError) setSkillError('');
+                }}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
-                placeholder="Add skill (e.g. React, Next.js, Node)"
-                className="flex-1 px-3.5 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
+                placeholder="Add one skill (e.g. React)"
+                className={`flex-1 px-3.5 py-2 border rounded-xl text-sm outline-none focus:border-indigo-500 ${skillError ? 'border-rose-500' : 'border-slate-200'}`}
               />
               <button
                 type="button"
@@ -569,6 +629,11 @@ export default function Profile() {
                 <Plus className="w-4 h-4 text-white" />
                 Add
               </button>
+            </div>
+            <div id="skill-input-help" className="flex justify-between gap-3 text-xs">
+              <span className={skillError ? 'text-rose-600' : 'text-slate-500'} role={skillError ? 'alert' : undefined}>
+                {skillError || `${skillInput.length}/${MAX_SKILL_LENGTH} characters · ${skillInput.trim() ? skillInput.trim().split(/\s+/).length : 0}/${MAX_SKILL_WORDS} words · ${skills.length}/${MAX_EMPLOYEE_SKILLS} skills`}
+              </span>
             </div>
 
             <div className="flex flex-wrap gap-2 pt-2">
@@ -585,10 +650,14 @@ export default function Profile() {
                   }`}
                 >
                   {idx < 3 && <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />}
-                  <span>{skill}</span>
+                  <span className="break-words [overflow-wrap:anywhere]">{skill}</span>
                   <button
                     type="button"
-                    onClick={() => removeSkill(idx)}
+                    aria-label={`Remove ${skill}`}
+                    onClick={() => {
+                      removeSkill(idx);
+                      setSkillError('');
+                    }}
                     className="hover:text-rose-600 ml-1 font-bold text-sm"
                   >
                     ×
